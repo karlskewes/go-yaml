@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -94,5 +95,37 @@ func BenchmarkEncodeLargeDocument(b *testing.B) {
 		if _, err := Marshal(doc); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+type queueTestItem struct {
+	Name   string            `yaml:"name"`
+	Expr   string            `yaml:"expr"`
+	Labels map[string]string `yaml:"labels"`
+}
+
+func queueTestDoc(n int) []queueTestItem {
+	doc := make([]queueTestItem, n)
+	for i := range doc {
+		doc[i] = queueTestItem{
+			Name:   "item" + strconv.Itoa(i),
+			Expr:   "sum(rate(requests_total[5m]))",
+			Labels: map[string]string{"team": "a", "severity": "warning"},
+		}
+	}
+	return doc
+}
+
+func BenchmarkMarshalSequence(b *testing.B) {
+	for _, n := range []int{1000, 10000, 50000} {
+		doc := queueTestDoc(n)
+		b.Run("items="+strconv.Itoa(n), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if _, err := Marshal(doc); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
